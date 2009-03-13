@@ -5,7 +5,7 @@ use warnings;
 use Socket;
 use Net::IP qw(:PROC);
 use IO::Socket::INET;
-use POE qw(NFA Wheel::SocketFactory);
+use POE qw(NFA);
 use Net::DNS::Packet;
 use vars qw($VERSION);
 
@@ -40,7 +40,7 @@ sub resolve {
   POE::NFA->spawn(
   inline_states => {
     initial => {
-	_self  => sub { $_[RUNSTATE] = $self; $kernel->yield( '_setup' ); return; },
+	_self  => sub { $_[RUNSTATE] = $self; $poe_kernel->yield( '_setup' ); return; },
         _setup => \&_start,
     },
     hints   => {
@@ -85,14 +85,14 @@ sub _send {
   my ($machine,$runstate,$packet,$ns) = @_[MACHINE,RUNSTATE,ARG0,ARG1];
   my $socket = $runstate->{socket};
   my $data = $packet->data;
-  my $server_address = pack_sockaddr_in( $port, inet_aton($ns) );
+  my $server_address = pack_sockaddr_in( ( $runstate->{port} || 53 ), inet_aton($ns) );
   unless ( send( $socket, $data, 0, $server_address ) == length($data) ) {
      warn "$!\n";
      return;
   }
   $poe_kernel->select_read( $socket, '_read' );
   # Timeout
-  $poe_kernel->delay( '_timeout', $timeout );
+  $poe_kernel->delay( '_timeout', $runstate->{timeout} || 5 );
   return;
 }
 
@@ -183,6 +183,39 @@ sub _query {
   return;
 }
 
+sub _query_timeout {
+  my ($machine,$runstate) = @_[MACHINE,RUNSTATE];
+  my $query = $runstate->{current};
+  my $servers = $query->{servers};
+  my ($nameserver) = splice @{ $servers }, rand($#{ $servers }), 1;
+  # actually check here if there is something on the stack.
+  # pop off the most recent, and get the next authority record
+  # push back on to the stack and do a lookup for the authority
+  # record. No authority records left, then complain and bailout.
+  unless ( $nameserver ) {
+    if ( scalar @{ $runstate->{qstack} } ) {
+        $runstate->{current} = pop @{ $runstate->{qstack} };
+        my $host = ( keys %{ $runstate->{current}->{authority} } )[rand scalar keys %{ $runstate->{current}->{authority} }];
+        return unless $host; # Oops
+        delete $runstate->{current}->{authority}->{ $host };
+        push @{ $runstate->{qstack} }, $runstate->{current};
+        $runstate->{current} = {
+           query => $host,
+           type  => 'A',
+           packet => Net::DNS::Packet->new($host,'A','IN'),
+        };
+        my @ns = _ns_from_cache( $runstate->{hints} );
+        $runstate->{current}->{servers} = \@ns;
+        ($nameserver) = splice @ns, rand($#ns), 1;
+    }
+    else {
+        return; # OMG
+    }
+  }
+  return unless $nameserver; # SERVFAIL? maybe
+  $poe_kernel->yield( '_setup', $query->{packet}, $nameserver );
+  return;
+}
 
 sub _authority {
   my $packet = shift || return;

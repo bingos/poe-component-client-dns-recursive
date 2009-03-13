@@ -1,0 +1,13 @@
+use strict;
+use inc::Module::Install;
+name 'POE-Component-Client-DNS-Recursive';
+license 'perl';
+author 'Chris Williams <chris@bingosnet.co.uk>';
+version_from 'lib/POE/Component/Client/DNS/Recursive.pm';
+abstract_from 'lib/POE/Component/Client/DNS/Recursive.pm';
+perl_version '5.006';
+build_requires 'Test::More' => 0.47;
+requires 'Net::IP' => 0;
+requires 'Net::DNS' => 0;
+requires 'POE' => 0.38;
+WriteAll();
