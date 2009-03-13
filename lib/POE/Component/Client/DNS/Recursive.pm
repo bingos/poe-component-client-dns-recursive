@@ -38,28 +38,36 @@ sub resolve {
   my $options = delete $opts{options};
   my $self = bless \%opts, $package;
   POE::NFA->spawn(
-  inline_states => {
-    initial => {
-	_self  => sub { $_[RUNSTATE] = $self; $poe_kernel->yield( '_setup' ); return; },
-        _setup => \&_start,
-    },
-    hints   => {
-        _setup => \&_send,
-        _read  => \&_hints,
-        _timeout => \&_hints_timeout,
-    },
-    query   => {
-        _setup => \&_send,
-        _read  => \&_query,
-        _timeout => \&_query_timeout,
-    },
+  object_states => {
+    initial => [
+	$self => { setup => '_start' },
+    ],
+    hints   => [
+	$self => {
+        _setup => '_send',
+        _read  => '_hints',
+        _timeout => '_hints_timeout',
+	},
+    ],
+    query   => [
+	$self => {
+        _setup => '_send',
+        _read  => '_query',
+        _timeout => '_query_timeout',
+	},
+    ],
+    done    => [
+        $self => [qw(_close)],
+    ],
   },
-  )->goto_state( 'initial' => '_self' );
+  runstate => $self,
+  )->goto_state( 'initial' => 'setup' );
   return $self;
 }
 
 sub _start {
   my ($machine,$runstate) = @_[MACHINE,RUNSTATE];
+  warn "Moo\n";
   my $type = $runstate->{type} || ( ip_get_version( $runstate->{host} ) ? 'PTR' : 'A' );
   my $class = $runstate->{class} || 'IN';
   $runstate->{qstack} = [ ];
@@ -143,7 +151,6 @@ sub _query {
   my $packet = _read_socket( $socket );
   my @ns;
   my $status = $packet->header->rcode;
-  print $packet->string, "\n";
   if ( $status ne 'NOERROR' ) {
         warn "$status\n";
         print $packet->string, "\n";
@@ -295,6 +302,7 @@ POE::Component::Client::DNS::Recursive - A recursive DNS client for POE
   'class', defaults to 'IN';
   'port', the port to use for DNS requests. Default is 53;
   'session',
+  'trace',
 
 =back
 
