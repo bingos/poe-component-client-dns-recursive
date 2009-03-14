@@ -155,7 +155,10 @@ sub _hints {
         }
       }
     }
-    $runstate->{hints} = \%hints;
+  if ( $runstate->{trace} ) {
+    $poe_kernel->post( $runstate->{sender_id}, $runstate->{trace}, $packet );
+  }
+  $runstate->{hints} = \%hints;
   my @ns = _ns_from_cache( $runstate->{hints} );
   my $query = $runstate->{current};
   $query->{servers} = \@ns;
@@ -192,6 +195,9 @@ sub _query {
      $runstate->{current} = pop @{ $runstate->{qstack} };
   }
   else {
+     if ( $runstate->{trace} ) {
+        $poe_kernel->post( $runstate->{sender_id}, $runstate->{trace}, $packet );
+     }
      my $authority = _authority( $packet );
      @ns = _ns_from_cache( $authority );
      unless ( scalar @ns ) {
