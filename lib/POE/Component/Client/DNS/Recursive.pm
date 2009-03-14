@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use Carp;
 use Socket;
+use File::Spec;
 use Net::IP qw(:PROC);
 use IO::Socket::INET;
 use POE qw(NFA);
@@ -314,6 +315,7 @@ sub _read_socket {
   my ($in,$err);
   {
      local *STDOUT;
+     open STDOUT, '>' . File::Spec->devnull();
      ($in, $err) = Net::DNS::Packet->new( \$message, 1 );
   }
   if ( $err ) {
