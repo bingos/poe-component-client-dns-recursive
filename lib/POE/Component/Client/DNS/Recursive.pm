@@ -2,6 +2,7 @@ package POE::Component::Client::DNS::Recursive;
 
 use strict;
 use warnings;
+use Carp;
 use Socket;
 use Net::IP qw(:PROC);
 use IO::Socket::INET;
@@ -37,10 +38,13 @@ sub resolve {
   @{ $opts{nameservers} } = grep { ip_get_version( $_ ) } @{ $opts{nameservers} };
   my $options = delete $opts{options};
   my $self = bless \%opts, $package;
+  my $sender = $poe_kernel->get_active_session();
+  $self->{_sender} = $sender;
   POE::NFA->spawn(
   object_states => {
     initial => [
 	$self => { setup => '_start' },
+	$self => [qw(_default)],
     ],
     hints   => [
 	$self => {
@@ -57,7 +61,7 @@ sub resolve {
 	},
     ],
     done    => [
-        $self => [qw(_close)],
+        $self => [qw(_close _error)],
     ],
   },
   runstate => $self,
@@ -65,9 +69,31 @@ sub resolve {
   return $self;
 }
 
+sub _default {
+  return 0;
+}
+
 sub _start {
-  my ($machine,$runstate) = @_[MACHINE,RUNSTATE];
-  warn "Moo\n";
+  my ($kernel,$machine,$runstate) = @_[KERNEL,MACHINE,RUNSTATE];
+  my $sender = $runstate->{_sender};
+  if ( $kernel == $sender and !$runstate->{session} ) {
+	croak "Not called from another POE session and 'session' wasn't set\n";
+  }
+  my $sender_id;
+  if ( $runstate->{session} ) {
+    if ( my $ref = $kernel->alias_resolve( $runstate->{session} ) ) {
+	$sender_id = $ref->ID();
+    }
+    else {
+	croak "Could not resolve 'session' to a valid POE session\n";
+    }
+  }
+  else {
+    $sender_id = $sender->ID();
+  }
+  $kernel->refcount_increment( $sender_id, __PACKAGE__ );
+  $kernel->detach_myself();
+  $runstate->{sender_id} = $sender_id;
   my $type = $runstate->{type} || ( ip_get_version( $runstate->{host} ) ? 'PTR' : 'A' );
   my $class = $runstate->{class} || 'IN';
   $runstate->{qstack} = [ ];
@@ -95,7 +121,7 @@ sub _send {
   my $data = $packet->data;
   my $server_address = pack_sockaddr_in( ( $runstate->{port} || 53 ), inet_aton($ns) );
   unless ( send( $socket, $data, 0, $server_address ) == length($data) ) {
-     warn "$!\n";
+     $machine->goto_state( 'done', '_error', $! );
      return;
   }
   $poe_kernel->select_read( $socket, '_read' );
@@ -152,15 +178,13 @@ sub _query {
   my @ns;
   my $status = $packet->header->rcode;
   if ( $status ne 'NOERROR' ) {
-        warn "$status\n";
-        print $packet->string, "\n";
+	$machine->goto_state( 'done', '_error', $status );
         return;
   }
   if (my @ans = $packet->answer) {
      # This is the end of the chain.
      unless ( scalar @{ $runstate->{qstack} } ) {
-        warn "We have answers\n";
-        print $packet->string, "\n";
+	$machine->goto_state( 'done', '_close', $packet );
         return;
      }
      # Okay we have queries pending.
@@ -203,7 +227,10 @@ sub _query_timeout {
     if ( scalar @{ $runstate->{qstack} } ) {
         $runstate->{current} = pop @{ $runstate->{qstack} };
         my $host = ( keys %{ $runstate->{current}->{authority} } )[rand scalar keys %{ $runstate->{current}->{authority} }];
-        return unless $host; # Oops
+        unless ( $host ) { # Oops
+           $machine->goto_state( 'done', '_error', 'Ran out of authority records' );
+           return; # OMG
+	}
         delete $runstate->{current}->{authority}->{ $host };
         push @{ $runstate->{qstack} }, $runstate->{current};
         $runstate->{current} = {
@@ -216,11 +243,36 @@ sub _query_timeout {
         ($nameserver) = splice @ns, rand($#ns), 1;
     }
     else {
+        $machine->goto_state( 'done', '_error', 'Ran out of authority records' );
         return; # OMG
     }
   }
-  return unless $nameserver; # SERVFAIL? maybe
+  unless ( $nameserver ) {  # SERVFAIL? maybe
+    $machine->goto_state( 'done', '_error', 'Ran out of nameservers to query' );
+    return;
+  }
   $poe_kernel->yield( '_setup', $query->{packet}, $nameserver );
+  return;
+}
+
+sub _error {
+  my ($kernel,$machine,$runstate,$error) = @_[KERNEL,MACHINE,RUNSTATE,ARG0];
+  my $resp = {};
+  $resp->{$_} = $runstate->{$_} for qw(host type class context);
+  $resp->{response} = undef;
+  $resp->{error} = $error;
+  $kernel->post( $runstate->{sender_id}, $runstate->{event}, $resp );
+  $kernel->refcount_decrement( $runstate->{sender_id}, __PACKAGE__ );
+  return;
+}
+
+sub _close {
+  my ($kernel,$machine,$runstate,$packet) = @_[KERNEL,MACHINE,RUNSTATE,ARG0];
+  my $resp = {};
+  $resp->{$_} = $runstate->{$_} for qw(host type class context);
+  $resp->{response} = $packet;
+  $kernel->post( $runstate->{sender_id}, $runstate->{event}, $resp );
+  $kernel->refcount_decrement( $runstate->{sender_id}, __PACKAGE__ );
   return;
 }
 
