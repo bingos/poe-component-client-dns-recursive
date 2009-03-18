@@ -42,5 +42,7 @@ sub _response {
 
 sub _trace {
   pass('Got a trace');
+  my $packet = $_[ARG0];
+  isa_ok( $packet, 'Net::DNS::Packet' );
   return;
 }
