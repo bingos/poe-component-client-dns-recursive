@@ -1,5 +1,5 @@
 POE::Component::Client::DNS::Recursive
 ======================================
 
-0.02
+0.02	Thu Apr  2 21:49:48 BST 2009
 	- Initial CPAN release
