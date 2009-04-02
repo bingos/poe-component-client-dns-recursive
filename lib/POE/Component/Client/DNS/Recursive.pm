@@ -348,7 +348,62 @@ POE::Component::Client::DNS::Recursive - A recursive DNS client for POE
 
 =head1 SYNOPSIS
 
+  use strict;
+  use warnings;
+  use Getopt::Long;
+  
+  use POE qw(Component::Client::DNS::Recursive);
+  
+  my $trace;
+  GetOptions ('trace' => \$trace);
+  
+  my $host = shift || die "Nothing to query\n";
+  my $type = shift;
+  
+  POE::Session->create(
+    package_states => [
+          'main', [qw(_start _response _trace)],
+    ],
+  );
+  
+  $poe_kernel->run();
+  exit 0;
+  
+  sub _start {
+    POE::Component::Client::DNS::Recursive->resolve(
+          event => '_response',
+          host => $host,
+  	( $type ? ( type => $type ) : () ),
+  	( $trace ? ( trace => '_trace' ) : () ),
+    );
+    return;
+  }
+  
+  sub _trace {
+    my $packet = $_[ARG0];
+    return unless $packet;
+    print $packet->string;
+    return;
+  }
+  
+  sub _response {
+    my $packet = $_[ARG0]->{response};
+    return unless $packet;
+    print $packet->string;
+    return;
+  }
+
 =head1 DESCRIPTION
+
+POE::Component::Client::DNS::Recursive is a L<POE> component that implements a recursive DNS 
+client. 
+
+POE sessions and components can spawn a POE::Component::Client::DNS::Recursive instance to 
+perform a DNS query. The component will perform its task and return the results to the requesting
+session.
+
+One may also enable tracing of the delegation path from the root name servers
+for the name being looked up. 
 
 =head1 CONSTRUCTOR
 
@@ -356,19 +411,57 @@ POE::Component::Client::DNS::Recursive - A recursive DNS client for POE
 
 =item C<resolve>
 
-  'event', the event to emit;
-  'host', what to look up;
+Takes a number of options, only those marked as C<mandatory> are required:
+
+  'event', the event to emit when completed, mandatory;
+  'host', what to look up, mandatory;
   'type', defaults to 'A' or 'PTR' if 'host' appears to be an IP address;
   'class', defaults to 'IN';
   'port', the port to use for DNS requests. Default is 53;
-  'session',
-  'trace',
+  'session', provide an alternative session to send the resultant event to;
+  'trace', the event to send trace information to;
+  'nameservers', an arrayref of IP addresses that the poco will use instead of built-in 'hints';
+  'context', user defined data. Can be anything that can be stored in a scalar;
+
+C<event> and C<trace> are discussed in the C<OUTPUT EVENTS> section below.
+
+C<session> is only required if one wishes to send the resultant events to a different session than the calling
+one, or if the component is spawned with the L<POE::Kernel> as its parent.
 
 =back
 
-=head1 METHODS
-
 =head1 OUTPUT EVENTS
+
+The output events from the component as specified in the C<resolve> constructor.
+
+=over
+
+=item C<event>
+
+Emitted when the query has finished.
+
+C<ARG0> will contain a hashref with the following fields:
+
+  host     => the host requested,
+  type     => the type requested,
+  class    => the class requested,
+  context  => the context that was passed to us,
+  response => a Net::DNS::Packet object,
+  error    => an error message ( if applicable )
+
+C<response> contains a L<Net::DNS::Packet> object on success or undef if the lookup failed. 
+The L<Net::DNS::Packet> object describes the response to the program's request. 
+It may contain several DNS records. Please consult L<Net::DNS> and L<Net::DNS::Packet> for more information.
+
+C<error> contains a description of any error that has occurred. It is only valid if C<response> is undefined.
+
+=item C<trace>
+
+Emitted whenever an element of the delegation path from the root servers is found.
+
+C<ARG0> will be a L<Net::DNS::Packet> object.
+
+=back
 
 =head1 AUTHOR
 

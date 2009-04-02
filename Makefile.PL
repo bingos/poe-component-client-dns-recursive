@@ -9,5 +9,6 @@ perl_version '5.006';
 build_requires 'Test::More' => 0.47;
 requires 'Net::IP' => 0;
 requires 'Net::DNS::Packet' => 0;
-requires 'POE' => '1.003_05';
+requires 'POE' => '1.004';
+auto_set_repository;
 WriteAll();

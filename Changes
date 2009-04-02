@@ -1,0 +1,5 @@
+POE::Component::Client::DNS::Recursive
+======================================
+
+0.02
+	- Initial CPAN release
