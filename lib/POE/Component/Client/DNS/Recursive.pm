@@ -11,7 +11,7 @@ use POE qw(NFA);
 use Net::DNS::Packet;
 use vars qw($VERSION);
 
-$VERSION = '0.02';
+$VERSION = '0.04';
 
 my @hc_hints = qw(
 198.41.0.4

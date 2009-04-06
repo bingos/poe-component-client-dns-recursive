@@ -15,6 +15,9 @@ plan skip_all => 'Could not determine a local nameserver to query' unless scalar
 
 plan tests => 5;
 
+diag("Running tests with the following nameservers:\n");
+diag("$_\n") for @ns;
+
 POE::Session->create(
   package_states => [
 	'main', [qw(_start _stop _child _response)],

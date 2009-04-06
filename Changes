@@ -1,5 +1,8 @@
 POE::Component::Client::DNS::Recursive
 ======================================
 
+0.04	Mon Apr  6 14:40:57 BST 2009
+	- Added some diagnostics to the test that CPAN Testers are failing on
+
 0.02	Thu Apr  2 21:49:48 BST 2009
 	- Initial CPAN release
