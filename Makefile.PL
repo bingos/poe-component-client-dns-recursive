@@ -10,5 +10,5 @@ build_requires 'Test::More' => 0.47;
 requires 'Net::IP' => 0;
 requires 'Net::DNS::Packet' => 0;
 requires 'POE' => '1.004';
-auto_set_repository;
+eval "auto_set_repository";
 WriteAll();

@@ -1,6 +1,10 @@
 POE::Component::Client::DNS::Recursive
 ======================================
 
+0.06	Wed Apr  8 08:59:58 BST 2009
+	- Make auto_set_repository() only run at author-time
+	- Better error checking for when we can't make a socket address
+
 0.04	Mon Apr  6 14:40:57 BST 2009
 	- Added some diagnostics to the test that CPAN Testers are failing on
 

@@ -11,7 +11,7 @@ use POE qw(NFA);
 use Net::DNS::Packet;
 use vars qw($VERSION);
 
-$VERSION = '0.04';
+$VERSION = '0.06';
 
 my @hc_hints = qw(
 198.41.0.4
@@ -120,7 +120,15 @@ sub _send {
   my ($machine,$runstate,$packet,$ns) = @_[MACHINE,RUNSTATE,ARG0,ARG1];
   my $socket = $runstate->{socket};
   my $data = $packet->data;
-  my $server_address = pack_sockaddr_in( ( $runstate->{port} || 53 ), inet_aton($ns) );
+  my $server_address;
+  eval {
+     $server_address = pack_sockaddr_in( ( $runstate->{port} || 53 ), inet_aton($ns) );
+  };
+  unless ( $server_address ) {
+     warn "'$ns' didn't produce an valid server address\n";
+     $machine->goto_state( 'done', '_error', $@ );
+     return;
+  }
   unless ( send( $socket, $data, 0, $server_address ) == length($data) ) {
      $machine->goto_state( 'done', '_error', $! );
      return;
