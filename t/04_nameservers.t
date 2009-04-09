@@ -48,6 +48,7 @@ sub _child {
 
 sub _response {
   my $packet = $_[ARG0]->{response};
+  diag($_[ARG0]->{error} . "\n") if defined $_[ARG0]->{error};
   return unless $packet;
   isa_ok( $packet, 'Net::DNS::Packet' );
   ok( scalar $packet->answer, 'We got answers' );

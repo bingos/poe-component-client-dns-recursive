@@ -11,7 +11,7 @@ use POE qw(NFA);
 use Net::DNS::Packet;
 use vars qw($VERSION);
 
-$VERSION = '0.06';
+$VERSION = '0.08';
 
 my @hc_hints = qw(
 198.41.0.4
@@ -112,7 +112,7 @@ sub _start {
      $hints = \@hc_hints;
   }
   $runstate->{_hints} = $hints;
-  $machine->goto_state( 'hints', '_setup', Net::DNS::Packet->new('.','NS','IN'), $hints->[rand $#{$hints}] );
+  $machine->goto_state( 'hints', '_setup', Net::DNS::Packet->new('.','NS','IN'), splice( @$hints, rand($#{$hints}), 1) );
   return;
 }
 
@@ -179,7 +179,12 @@ sub _hints {
 sub _hints_timeout {
   my ($machine,$runstate) = @_[MACHINE,RUNSTATE];
   my $hints = $runstate->{_hints};
-  $machine->goto_state( 'hints', '_setup', Net::DNS::Packet->new('.','NS','IN'), $hints->[rand $#{$hints}] );
+  if ( scalar @{ $hints } ) {
+     $machine->goto_state( 'hints', '_setup', Net::DNS::Packet->new('.','NS','IN'), splice( @$hints, rand($#{$hints}), 1) );
+  }
+  else {
+     $machine->goto_state( 'done', '_error', 'Ran out of authority records' );
+  }
   return;
 }
 
@@ -272,6 +277,7 @@ sub _query_timeout {
 
 sub _error {
   my ($kernel,$machine,$runstate,$error) = @_[KERNEL,MACHINE,RUNSTATE,ARG0];
+  $kernel->select_read( $runstate->{socket} ); # Just in case
   my $resp = {};
   $resp->{$_} = $runstate->{$_} for qw(host type class context);
   $resp->{response} = undef;
@@ -283,6 +289,7 @@ sub _error {
 
 sub _close {
   my ($kernel,$machine,$runstate,$packet) = @_[KERNEL,MACHINE,RUNSTATE,ARG0];
+  $kernel->select_read( $runstate->{socket} ); # Just in case
   my $resp = {};
   $resp->{$_} = $runstate->{$_} for qw(host type class context);
   $resp->{response} = $packet;
