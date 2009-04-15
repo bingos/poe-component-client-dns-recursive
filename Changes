@@ -1,6 +1,9 @@
 POE::Component::Client::DNS::Recursive
 ======================================
 
+0.12	Wed Apr 15 23:41:27 BST 2009
+	- Finally tracked down the fails with nameservers parameter
+
 0.10	Wed Apr 15 15:36:40 BST 2009
 	- The 'host' and 'event' parameters weren't mandatory, made
 	  them so.
