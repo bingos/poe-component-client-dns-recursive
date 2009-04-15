@@ -11,7 +11,7 @@ use POE qw(NFA);
 use Net::DNS::Packet;
 use vars qw($VERSION);
 
-$VERSION = '0.08';
+$VERSION = '0.10';
 
 my @hc_hints = qw(
 198.41.0.4
@@ -35,6 +35,10 @@ sub resolve {
   $opts{lc $_} = delete $opts{$_} for keys %opts;
   # Check for 'host'
   # Check for 'event'
+  croak "$package requires a 'host' argument\n"
+	unless $opts{host};
+  croak "$package requires an 'event' argument\n"
+	unless $opts{event};
   $opts{nameservers} = [ ] unless $opts{nameservers} and ref $opts{nameservers} eq 'ARRAY';
   @{ $opts{nameservers} } = grep { ip_get_version( $_ ) } @{ $opts{nameservers} };
   my $options = delete $opts{options};

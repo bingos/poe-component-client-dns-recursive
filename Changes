@@ -1,6 +1,10 @@
 POE::Component::Client::DNS::Recursive
 ======================================
 
+0.10	Wed Apr 15 15:36:40 BST 2009
+	- The 'host' and 'event' parameters weren't mandatory, made
+	  them so.
+
 0.08	Thu Apr  9 12:42:51 BST 2009
 	- Fixed some issues with only one nameserver being specified.
 	- Resolved issues with select not being removed on the socket.
