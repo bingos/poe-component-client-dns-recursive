@@ -127,10 +127,6 @@ sub _hints_go {
 
 sub _send {
   my ($machine,$runstate,$state,$packet,$ns) = @_[MACHINE,RUNSTATE,STATE,ARG0,ARG1];
-  if ( !$ns and $state eq 'hints' ) {
-     $machine->goto_state( 'hints', '_init' );
-     return;
-  }
   my $socket = $runstate->{socket};
   my $data = $packet->data;
   my $server_address;
@@ -181,6 +177,10 @@ sub _hints {
   }
   $runstate->{hints} = \%hints;
   my @ns = _ns_from_cache( $runstate->{hints} );
+  unless ( scalar @ns ) {
+     $machine->goto_state( 'hints', '_init' );
+     return;
+  }
   my $query = $runstate->{current};
   $query->{servers} = \@ns;
   my ($nameserver) = splice @ns, rand($#ns), 1;
@@ -193,6 +193,10 @@ sub _hints_timeout {
   my $hints = $runstate->{_hints};
   if ( scalar @{ $hints } ) {
      $machine->goto_state( 'hints', '_setup', Net::DNS::Packet->new('.','NS','IN'), splice( @$hints, rand($#{$hints}), 1) );
+  }
+  elsif ( defined $runstate->{nameservers} ) {
+     $machine->goto_state( 'hints', '_init' );
+     return;
   }
   else {
      $machine->goto_state( 'done', '_error', 'Ran out of authority records' );
