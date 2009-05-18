@@ -532,4 +532,6 @@ This module may be used, modified, and distributed under the same terms as Perl 
 
 L<POE::Component::Client::DNS>
 
+Perl Programming
+
 =cut
