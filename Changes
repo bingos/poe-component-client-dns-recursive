@@ -1,6 +1,9 @@
 POE::Component::Client::DNS::Recursive
 ======================================
 
+1.00	Mon May 18 22:33:05 BST 2009
+	- Added postbacks for event and trace
+
 0.12	Wed Apr 15 23:41:27 BST 2009
 	- Finally tracked down the fails with nameservers parameter
 

@@ -1,9 +1,11 @@
 Changes
 examples/synopsis.pl
 inc/Module/Install.pm
+inc/Module/Install/AutoLicense.pm
 inc/Module/Install/Base.pm
 inc/Module/Install/Can.pm
 inc/Module/Install/Fetch.pm
+inc/Module/Install/GithubMeta.pm
 inc/Module/Install/Makefile.pm
 inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm
@@ -19,5 +21,7 @@ t/01_simple.t
 t/02_nxdomain.t
 t/03_trace.t
 t/04_nameservers.t
+t/05_postback.t
+t/06_trace_pb.t
 t/99_pod.t
 t/99_pod_coverage.t

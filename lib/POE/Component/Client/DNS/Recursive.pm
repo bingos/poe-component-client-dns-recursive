@@ -11,7 +11,7 @@ use POE qw(NFA);
 use Net::DNS::Packet;
 use vars qw($VERSION);
 
-$VERSION = '0.12';
+$VERSION = '1.00';
 
 my @hc_hints = qw(
 198.41.0.4
@@ -95,7 +95,8 @@ sub _start {
   else {
     $sender_id = $sender->ID();
   }
-  $kernel->refcount_increment( $sender_id, __PACKAGE__ );
+  $kernel->refcount_increment( $sender_id, __PACKAGE__ )
+     unless ref $runstate->{event} eq 'POE::Session::AnonEvent';
   $kernel->detach_myself();
   $runstate->{sender_id} = $sender_id;
   my $type = $runstate->{type} || ( ip_get_version( $runstate->{host} ) ? 'PTR' : 'A' );
@@ -173,7 +174,12 @@ sub _hints {
       }
     }
   if ( $runstate->{trace} ) {
-    $poe_kernel->post( $runstate->{sender_id}, $runstate->{trace}, $packet );
+    if ( ref $runstate->{trace} eq 'POE::Session::AnonEvent' ) {
+       $runstate->{trace}->( $packet );
+    }
+    else {
+       $poe_kernel->post( $runstate->{sender_id}, $runstate->{trace}, $packet );
+    }
   }
   $runstate->{hints} = \%hints;
   my @ns = _ns_from_cache( $runstate->{hints} );
@@ -298,8 +304,15 @@ sub _error {
   $resp->{$_} = $runstate->{$_} for qw(host type class context);
   $resp->{response} = undef;
   $resp->{error} = $error;
-  $kernel->post( $runstate->{sender_id}, $runstate->{event}, $resp );
-  $kernel->refcount_decrement( $runstate->{sender_id}, __PACKAGE__ );
+  delete $runstate->{trace};
+  if ( ref $runstate->{event} eq 'POE::Session::AnonEvent' ) {
+     my $postback = delete $runstate->{event};
+     $postback->( $resp );
+  }
+  else {
+     $kernel->post( $runstate->{sender_id}, $runstate->{event}, $resp );
+     $kernel->refcount_decrement( $runstate->{sender_id}, __PACKAGE__ );
+  }
   return;
 }
 
@@ -309,8 +322,15 @@ sub _close {
   my $resp = {};
   $resp->{$_} = $runstate->{$_} for qw(host type class context);
   $resp->{response} = $packet;
-  $kernel->post( $runstate->{sender_id}, $runstate->{event}, $resp );
-  $kernel->refcount_decrement( $runstate->{sender_id}, __PACKAGE__ );
+  delete $runstate->{trace};
+  if ( ref $runstate->{event} eq 'POE::Session::AnonEvent' ) {
+     my $postback = delete $runstate->{event};
+     $postback->( $resp );
+  }
+  else {
+     $kernel->post( $runstate->{sender_id}, $runstate->{event}, $resp );
+     $kernel->refcount_decrement( $runstate->{sender_id}, __PACKAGE__ );
+  }
   return;
 }
 
@@ -405,13 +425,13 @@ POE::Component::Client::DNS::Recursive - A recursive DNS client for POE
           event => '_response',
           host => $host,
   	( $type ? ( type => $type ) : () ),
-  	( $trace ? ( trace => '_trace' ) : () ),
+  	( $trace ? ( trace => $_[SESSION]->postback( '_trace' ) ) : () ),
     );
     return;
   }
   
   sub _trace {
-    my $packet = $_[ARG0];
+    my $packet = $_[ARG1]->[0];
     return unless $packet;
     print $packet->string;
     return;
@@ -456,6 +476,8 @@ Takes a number of options, only those marked as C<mandatory> are required:
 
 C<event> and C<trace> are discussed in the C<OUTPUT EVENTS> section below.
 
+C<event> and C<trace> may also be L<POE::Session> postbacks.
+
 C<session> is only required if one wishes to send the resultant events to a different session than the calling
 one, or if the component is spawned with the L<POE::Kernel> as its parent.
 
@@ -464,6 +486,8 @@ one, or if the component is spawned with the L<POE::Kernel> as its parent.
 =head1 OUTPUT EVENTS
 
 The output events from the component as specified in the C<resolve> constructor.
+
+If you have opted to use postbacks, then these parameters will be passed in the arrayref in C<ARG1>.
 
 =over
 
