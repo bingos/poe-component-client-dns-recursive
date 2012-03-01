@@ -14,18 +14,14 @@ use Net::DNS::Packet;
 
 my @hc_hints = qw(
 198.41.0.4
-192.58.128.30
-192.112.36.4
-202.12.27.33
+192.228.79.201
+192.33.4.12
+128.8.10.90
+192.203.230.10
 192.5.5.241
+192.112.36.4
 128.63.2.53
 192.36.148.17
-192.33.4.12
-192.228.79.201
-199.7.83.42
-128.8.10.90
-193.0.14.129
-192.203.230.10
 );
 
 sub resolve {
@@ -118,7 +114,7 @@ sub _hints_go {
      $hints = $runstate->{nameservers};
   }
   else {
-     $hints = \@hc_hints;
+     $hints = [ @hc_hints ];
   }
   $runstate->{_hints} = $hints;
   $machine->goto_state( 'hints', '_setup', Net::DNS::Packet->new('.','NS','IN'), splice( @$hints, rand($#{$hints}), 1) );
