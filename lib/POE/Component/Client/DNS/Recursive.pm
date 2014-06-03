@@ -5,9 +5,9 @@ package POE::Component::Client::DNS::Recursive;
 use strict;
 use warnings;
 use Carp;
-use Socket;
+use Socket qw[:all];
 use Net::IP::Minimal qw(:PROC);
-use IO::Socket::INET;
+use IO::Socket::IP;
 use POE qw(NFA);
 use Net::DNS::Packet;
 
@@ -101,7 +101,7 @@ sub _start {
         type  => $type,
         packet => Net::DNS::Packet->new($runstate->{host},$type,$class),
   };
-  $runstate->{socket} = IO::Socket::INET->new( Proto => 'udp' );
+  $runstate->{socket} = IO::Socket::IP->new( Proto => 'udp' );
   $machine->goto_state( 'hints', '_init' );
   return;
 }
@@ -124,16 +124,19 @@ sub _send {
   my ($machine,$runstate,$state,$packet,$ns) = @_[MACHINE,RUNSTATE,STATE,ARG0,ARG1];
   my $socket = $runstate->{socket};
   my $data = $packet->data;
-  my $server_address;
-  eval {
-     $server_address = pack_sockaddr_in( ( $runstate->{port} || 53 ), inet_aton($ns) );
-  };
-  unless ( $server_address ) {
-     warn "'$ns' didn't produce an valid server address\n";
-     $machine->goto_state( 'done', '_error', $@ );
-     return;
+  my $ai;
+  {
+    my %hints = (flags => AI_NUMERICHOST, socktype => SOCK_DGRAM, protocol => IPPROTO_UDP);
+    my ($err, @res) = getaddrinfo($ns, '53', \%hints);
+    if ( $err ) {
+      warn "'$ns' didn't produce an valid server address\n";
+      $machine->goto_state( 'done', '_error', $err );
+      return;
+    }
+    $ai = shift @res;
   }
-  unless ( send( $socket, $data, 0, $server_address ) == length($data) ) {
+  $socket->socket( $ai->{family}, $ai->{socktype}, $ai->{protocol} );
+  unless ( send( $socket, $data, 0, $ai->{addr} ) == length($data) ) {
      $machine->goto_state( 'done', '_error', $! );
      return;
   }
