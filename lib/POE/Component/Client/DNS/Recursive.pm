@@ -137,7 +137,7 @@ sub _send {
   }
   $socket->socket( $ai->{family}, $ai->{socktype}, $ai->{protocol} );
   unless ( send( $socket, $data, 0, $ai->{addr} ) == length($data) ) {
-     $machine->goto_state( 'done', '_error', $! );
+     $machine->goto_state( 'done', '_error', "$ns: $!" );
      return;
   }
   $poe_kernel->select_read( $socket, '_read' );

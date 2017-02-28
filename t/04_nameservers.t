@@ -6,7 +6,7 @@ use POE qw(Component::Client::DNS::Recursive);
 
 my @ns;
 
-{ 
+{
   my $res = Net::DNS::Resolver->new();
   @ns = $res->nameservers();
 }
