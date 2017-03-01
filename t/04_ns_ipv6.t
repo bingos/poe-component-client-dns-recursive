@@ -8,10 +8,10 @@ my @ns;
 
 {
   my $res = Net::DNS::Resolver->new();
-  @ns = $res->nameservers();
+  @ns = grep { m!:! } $res->nameservers();
 }
 
-plan skip_all => 'Could not determine a local nameserver to query' unless scalar @ns;
+plan skip_all => 'No local IPv6 nameservers to query' unless scalar @ns;
 
 plan tests => 5;
 
