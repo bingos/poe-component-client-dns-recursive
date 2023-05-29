@@ -155,7 +155,7 @@ sub _hints {
         if ($rr->name =~ /^\.?$/ and
             $rr->type eq "NS") {
           # Found root authority
-          my $server = lc $rr->rdatastr;
+          my $server = lc $rr->rdstring;
           $server =~ s/\.$//;
           $hints{$server} = [];
         }
@@ -164,7 +164,7 @@ sub _hints {
         if (my $server = lc $rr->name){
           if ( $rr->type eq "A") {
             if ($hints{$server}) {
-              push @{ $hints{$server} }, $rr->rdatastr;
+              push @{ $hints{$server} }, $rr->rdstring;
             }
           }
         }
@@ -224,7 +224,7 @@ sub _query {
         return;
      }
      # Okay we have queries pending.
-     push @ns, $_->rdatastr for grep { $_->type eq 'A' } @ans;
+     push @ns, $_->rdstring for grep { $_->type eq 'A' } @ans;
      $runstate->{current} = pop @{ $runstate->{qstack} };
   }
   else {
@@ -338,14 +338,14 @@ sub _authority {
       foreach my $rr (@ans) {
             if ( $rr->type eq 'NS') {
           # Found root authority
-          my $server = lc $rr->rdatastr;
+          my $server = lc $rr->rdstring;
           $server =~ s/\.$//;
           $hints{$server} = [];
         }
       }
       foreach my $rr ($packet->additional) {
         if (my $server = lc $rr->name){
-              push @{ $hints{$server} }, $rr->rdatastr if $rr->type eq 'A' and $hints{$server};
+              push @{ $hints{$server} }, $rr->rdstring if $rr->type eq 'A' and $hints{$server};
         }
       }
     }
